@@ -93,7 +93,7 @@ def main():
 
 # In[48]:
     outputfname = args.outputfname if not(args.outputfname == None)\
-    else os.path.dirname(inputfname)+"\\"+"noOutlier_"+os.path.basename(inputfname)
+    else "noOutlier_"+os.path.basename(inputfname)
     print outputfname
     outFile1 = file.File(outputfname, mode = "w",
                      header = inFile.header)
