@@ -25,23 +25,21 @@ def parseCmdLine():
     if (not args.silent):
         print("Processing:",args.inputfname)
         print("Cellsize:",args.cellsize)    # Define the cell size of the grid
-        print("Treshold:",args.tolerance)   # The deviation from the mean to be considered outlier
+        print("Tolerance:",args.tolerance)   # The deviation from the mean to be considered outlier
     return args
 
 def checkParams(args):
     if not os.path.exists(args.inputfname):
         Exception("File {0} doesn't exists.".format(args.inputfname))
 
-def main():
-    args=parseCmdLine()
-    checkParams(args)
-    inputfname=args.inputfname if args.inputfname.lower().endswith(".las") else inputfname+".las"
+def outlier(inputfname, outputfname, cellsize=50, tolerance=3.0, silent=False):
+    inputfname=inputfname if inputfname.lower().endswith(".las") else inputfname+".las"
     inFile = file.File(inputfname, mode = "r")
     filtered_logic = []              # List to save the true/false for each looping
     maxStep = []                     # List to save the number of cells in X and Y dimension of original data
-    maxStep.append(m.ceil((inFile.x.max() - inFile.x.min()) / args.cellsize))
-    maxStep.append(m.ceil((inFile.y.max() - inFile.y.min()) / args.cellsize))
-    if not args.silent:
+    maxStep.append(m.ceil((inFile.x.max() - inFile.x.min()) / cellsize))
+    maxStep.append(m.ceil((inFile.y.max() - inFile.y.min()) / cellsize))
+    if not silent:
         print("The original cloud was divided in {0} by {1} cells.".format(maxStep[0],maxStep[1]))
 
     # 1. Find return of the cell of interest
@@ -58,10 +56,10 @@ def main():
         for stepY in range(int(maxStep[1])):             # Looping over the columns
             # Step 1 - Filter data from the analized cell
             # Return True or False for return inside the selected cell
-            X_valid = np.logical_and((inFile.x.min() + (stepX * args.cellsize) <= inFile.x),
-                                 (inFile.x.min() + ((stepX + 1) * args.cellsize) > inFile.x))
-            Y_valid = np.logical_and((inFile.y.min() + (stepY * args.cellsize) <= inFile.y),
-                                 (inFile.y.min() + ((stepY + 1) * args.cellsize) > inFile.y))
+            X_valid = np.logical_and((inFile.x.min() + (stepX * cellsize) <= inFile.x),
+                                 (inFile.x.min() + ((stepX + 1) * cellsize) > inFile.x))
+            Y_valid = np.logical_and((inFile.y.min() + (stepY * cellsize) <= inFile.y),
+                                 (inFile.y.min() + ((stepY + 1) * cellsize) > inFile.y))
             logicXY = np.logical_and(X_valid, Y_valid)
             validXY = np.where(logicXY)
 
@@ -69,8 +67,8 @@ def main():
             #print np.std(inFile.z), np.std(inFile.z[validXY])
 
             # Step 3 - Determine the outliers
-            Z_valid = np.logical_and((np.mean(inFile.z[validXY]) - args.tolerance * np.std(inFile.z[validXY]) <= inFile.z),
-                                 (np.mean(inFile.z[validXY]) + args.tolerance * np.std(inFile.z[validXY]) > inFile.z))
+            Z_valid = np.logical_and((np.mean(inFile.z[validXY]) - tolerance * np.std(inFile.z[validXY]) <= inFile.z),
+                                 (np.mean(inFile.z[validXY]) + tolerance * np.std(inFile.z[validXY]) > inFile.z))
             logicXYZ = np.logical_and(logicXY, Z_valid)
             validXYZ = np.where(logicXYZ)
             #print str(len(validXY[0]) - len(validXYZ[0])) + ' returns removed'
@@ -78,7 +76,6 @@ def main():
             filtered_logic.append(logicXYZ)
             n += 1
             print("{0} % processed.".format(round(n/(maxStep[0] * maxStep[1])*100, 2))) 
-
 
             # Select from the original cloud the good returns.
 
@@ -92,14 +89,17 @@ def main():
 
 
 # In[48]:
-    outputfname = args.outputfname if not(args.outputfname == None)\
-    else "noOutlier_"+os.path.basename(inputfname)
-    print outputfname
+    outputfname = outputfname if not(outputfname == None) else "noOutlier_"+os.path.basename(inputfname)
+    outputfname = outputfname if outputfname.lower().endswith(".las") else outputfname+".las"
     outFile1 = file.File(outputfname, mode = "w",
                      header = inFile.header)
     outFile1.points = inFile.points[validXYZ]
     outFile1.close()
 
+def main():
+    args=parseCmdLine()
+    checkParams(args)
+    outlier(args.inputfname,args.outputfname,args.cellsize,args.tolerance,args.silent)
 # In[ ]:
 
 if __name__ == "__main__":
