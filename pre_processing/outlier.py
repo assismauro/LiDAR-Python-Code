@@ -12,17 +12,18 @@ import os.path
 import time
 import argparse
 import numpy as np
-import math as m
+import math
 from laspy import file
 import warnings
 
 def parseCmdLine():
     parser = argparse.ArgumentParser(description="Process outlier filter in LAS files.")
-    parser.add_argument("inputfname",help="las file to be process ('.LAS' is not mandatory).")
-    parser.add_argument("-o","--outputfname", help="las output file ('.LAS' is not mandatory).")
+    parser.add_argument("inputfname",help="las file to be process.")
+    parser.add_argument("-o","--outputfname", help="las output file.")
     parser.add_argument("-c","--cellsize", help="size of the cells that will be processed.", default = 50)
     parser.add_argument("-t","--tolerance", type= float, help="number of std deviations will be considered not outlier.",default = 3.0)
-    parser.add_argument("-s","--silent", type= float, help="hide processing messages.",default = False)
+    parser.add_argument("-r","--removedcloud", help="create a new LAS file ", default = False)
+    parser.add_argument("-s","--silent", type= float, help="hide processing messages.", default = False)
     args = parser.parse_args()
     if (not args.silent):
         print("Processing: {0}".format(args.inputfname))
@@ -34,12 +35,17 @@ def checkParams(args):
     if not os.path.exists(args.inputfname):
         Exception("File {0} doesn't exists.".format(args.inputfname))
         
+def saveCloud(fname,header,cloud):
+    outFile = file.File(fname, mode = "w", header = header)
+    outFile.points = cloud
+    outFile.close()
+    
 
-def outlier(inputfname, outputfname=None, cellsize=50, tolerance=3.0, silent=False):
+def outlier(inputfname, outputfname=None, cellsize=50, tolerance=3.0, removedcloud=False, silent=False):
     start = time.time()
-    inputfname=inputfname if inputfname.lower().endswith(".las") else inputfname+".las"
+    
     inFile = file.File(inputfname, mode = "r")
-    filtered_logic = []              # List to save the true/false for each looping
+    accepted_logic = []              # List to save the true/false for each looping
     maxStep = []                     # List to save the number of cells in X and Y dimension of original data
     
     xmin = inFile.x.min()
@@ -47,8 +53,8 @@ def outlier(inputfname, outputfname=None, cellsize=50, tolerance=3.0, silent=Fal
     ymin = inFile.y.min()
     ymax = inFile.y.max()
     
-    maxStep.append(m.ceil((xmax - xmin) / cellsize))
-    maxStep.append(m.ceil((ymax - ymin) / cellsize))
+    maxStep.append(math.ceil((xmax - xmin) / cellsize))
+    maxStep.append(math.ceil((ymax - ymin) / cellsize))
     if not silent:
         print("The original cloud was divided in {0} by {1} cells.".format(maxStep[0],maxStep[1]))
 
@@ -83,9 +89,9 @@ def outlier(inputfname, outputfname=None, cellsize=50, tolerance=3.0, silent=Fal
                  print("\r[{0}] {1:.2f}%".format(hashes + spaces, percent * 100)),
 
             if(len(validXY[0]) == 0):
-                filtered_logic.append(False)
+                accepted_logic.append(False)
                 continue
-            
+                        
             # Step 2 - Compute the standard deviation
             #print np.std(inFile.z), np.std(inFile.z[validXY])
             
@@ -94,35 +100,36 @@ def outlier(inputfname, outputfname=None, cellsize=50, tolerance=3.0, silent=Fal
                 Z_valid = np.logical_and((np.mean(inFile.z[validXY]) - tolerance * np.std(inFile.z[validXY]) <= inFile.z),
                                  (np.mean(inFile.z[validXY]) + tolerance * np.std(inFile.z[validXY]) > inFile.z))
                 logicXYZ = np.logical_and(logicXY, Z_valid)
-                validXYZ = np.where(logicXYZ)
+
             except Exception, e:
                 if (not silent):
                     print("Error {0} in tile: {1}, {2}",e.args, stepX,stepY)
-            #print str(len(validXY[0]) - len(validXYZ[0])) + ' returns removed'
         
-            filtered_logic.append(logicXYZ)
-
+            accepted_logic.append(logicXYZ)
 
             # Select from the original cloud the good returns.
 # In[46]:
 
-    print
-    validXYZ = np.zeros((len(inFile.x)), dtype=bool)
-    for i in range(stepX * stepY):
-        validXYZ = np.logical_or(validXYZ, filtered_logic[i])
-    
-    print("{0} returns were removed based on the outlier rule.".format(len(inFile.z) - len(inFile.z[validXYZ]))) 
-
+    print("")
+    acceptedXYZ = np.zeros((len(inFile.x)), dtype=bool)
+    for i in range(int(maxStep[0] * maxStep[1])):
+        acceptedXYZ = np.logical_or(acceptedXYZ, accepted_logic[i])
+        
+    if(not silent):
+        print("There are {0} returns in the original cloud.\r\n{1} returns were removed based on the outlier rule.".format(len(inFile.z),len(inFile.z) - len(inFile.z[acceptedXYZ]))) 
 
 # In[48]:
-    outputfname = outputfname if not(outputfname == None) else "noOutlier_"+os.path.basename(inputfname)
-    outputfname = outputfname if outputfname.lower().endswith(".las") else outputfname+".las"
+
     if(not silent):
-        print("Saving {0} points...".format(len(inFile.z[validXYZ])))
-    outFile1 = file.File(outputfname, mode = "w",
-                     header = inFile.header)
-    outFile1.points = inFile.points[validXYZ]
-    outFile1.close()
+        print("Saving {0} points...".format(len(inFile.z[acceptedXYZ])))
+    outputfname = outputfname if not(outputfname == None) else "noOutlier_"+os.path.basename(inputfname)
+    saveCloud(outputfname,inFile.header,inFile.points[acceptedXYZ])
+
+    if(removedcloud):
+        print("Saving removed cloud...")
+        outputfname = outputfname.replace("noOutlier_","outlier_")
+        saveCloud(outputfname,inFile.header,inFile.points[np.logical_not(acceptedXYZ)])
+    
     if(not silent):
         print("Done in {0}s.".format(int(time.time()-start)))
 
@@ -130,7 +137,7 @@ def main():
     warnings.simplefilter("error", RuntimeWarning)
     args=parseCmdLine()
     checkParams(args)
-    outlier(args.inputfname,args.outputfname,args.cellsize,args.tolerance,args.silent)
+    outlier(args.inputfname,args.outputfname,args.cellsize,args.tolerance,args.removedcloud,args.savetiles,args.silent)
 # In[ ]:
 
 if __name__ == "__main__":
