@@ -27,7 +27,7 @@ def parseCmdLine():
     parser.add_argument("-o","--outputfname", help="las output file.")
     parser.add_argument("-c","--cellsize", type=float, help="size of the cells that will be processed.", default = 50)
     parser.add_argument("-t","--tolerance", type= float, help="number of std deviations will be considered not outlier.",default = 3.0)
-    parser.add_argument("-r","--removedcloud", help="create a new LAS file ", default = False)
+    parser.add_argument("-r","--removedcloud", help="create a new LAS file storing removed points", action='store_true', default = False)
     parser.add_argument("-s","--silent", help="hide processing messages.", default = False)
     args = parser.parse_args()
     if (not args.silent):
@@ -109,7 +109,7 @@ def outlier(inputfname, outputfname=None, cellsize=50, tolerance=3.0, removedclo
 
             except Exception, e:
                 if (not silent):
-                    print("Error {0} in tile: {1}, {2}",e.args, stepX,stepY)
+                    print("Error {0} in tile: {1}, {2}".format(e.args, stepX,stepY))
         
             accepted_logic.append(logicXYZ)
 
