@@ -1,0 +1,11 @@
+This file contains new ideas for LiDAR-Python. The items below will not necessarily be implemented.
+
+1) Change library name to something more "forestry" (forLiDARPython, f.e.)
+
+2) Change tolerance parameter in outlier.py to threshold (or another better name)
+
+3) Change silent parameter to verbose (more common)
+
+4) Test using X.Y,Z (capital) instead of x,y,z properties in laspy, in a way to speed up the processing.
+
+6) Create a function in lidarutils.py to show/export contents of LAS files.
