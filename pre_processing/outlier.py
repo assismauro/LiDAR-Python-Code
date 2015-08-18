@@ -16,14 +16,19 @@ import math
 from laspy import file
 import warnings
 
+def saveCloud(fname,header,cloud):
+    outFile = file.File(fname, mode = "w", header = header)
+    outFile.points = cloud
+    outFile.close()
+
 def parseCmdLine():
     parser = argparse.ArgumentParser(description="Process outlier filter in LAS files.")
     parser.add_argument("inputfname",help="las file to be process.")
     parser.add_argument("-o","--outputfname", help="las output file.")
-    parser.add_argument("-c","--cellsize", help="size of the cells that will be processed.", default = 50)
+    parser.add_argument("-c","--cellsize", type=float, help="size of the cells that will be processed.", default = 50)
     parser.add_argument("-t","--tolerance", type= float, help="number of std deviations will be considered not outlier.",default = 3.0)
     parser.add_argument("-r","--removedcloud", help="create a new LAS file ", default = False)
-    parser.add_argument("-s","--silent", type= float, help="hide processing messages.", default = False)
+    parser.add_argument("-s","--silent", help="hide processing messages.", default = False)
     args = parser.parse_args()
     if (not args.silent):
         print("Processing: {0}".format(args.inputfname))
@@ -34,11 +39,12 @@ def parseCmdLine():
 def checkParams(args):
     if not os.path.exists(args.inputfname):
         Exception("File {0} doesn't exists.".format(args.inputfname))
-        
-def saveCloud(fname,header,cloud):
-    outFile = file.File(fname, mode = "w", header = header)
-    outFile.points = cloud
-    outFile.close()
+
+#        
+#def saveCloud(fname,header,cloud):
+#    outFile = file.File(fname, mode = "w", header = header)
+#    outFile.points = cloud
+#    outFile.close()
     
 
 def outlier(inputfname, outputfname=None, cellsize=50, tolerance=3.0, removedcloud=False, silent=False):
@@ -137,7 +143,7 @@ def main():
     warnings.simplefilter("error", RuntimeWarning)
     args=parseCmdLine()
     checkParams(args)
-    outlier(args.inputfname,args.outputfname,args.cellsize,args.tolerance,args.removedcloud,args.savetiles,args.silent)
+    outlier(args.inputfname,args.outputfname,args.cellsize,args.tolerance,args.removedcloud,args.silent)
 # In[ ]:
 
 if __name__ == "__main__":
